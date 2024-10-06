@@ -1,43 +1,50 @@
+import time
 import cv2
 import easyocr
 import os
 import serial
+import multiprocessing
 from PIL import Image
 from ultralytics import YOLO
 
-# # Đảm bảo thư mục lưu ảnh tồn tại
-# output_dir = 'E:/Py/pythonProject'
-#
-# cap = cv2.VideoCapture(0)
-#
-# if not cap.isOpened():
-#     print("Không thể mở camera")
-#     exit()
-#
-# # Chụp ảnh
-# ret, frame = cap.read()
-#
-# if ret:
-#     # Đặt tên file và lưu ảnh
-#     image_path = os.path.join(output_dir, 'test.jpg')
-#     cv2.imwrite(image_path, frame)
-#     print(f"Đã lưu ảnh tại {image_path}")
-# else:
-#     print("Không chụp được ảnh")
-#
-
-
 # Thiết lập kết nối serial với Arduino
-arduino = serial.Serial('COM8', 9600)  # COM3 là cổng của Arduino, có thể khác trên máy của bạn
+arduino = serial.Serial('COM6', 9600)  # COM3 là cổng của Arduino, có thể khác trên máy của bạn
+
+# Tạo danh sách biển số xe
+list_license_plate = []
+
+# Mở Webcam
+cap = cv2.VideoCapture(1)
+
+# Thông báo Webcam đã khởi chạy
+print("Cam đã khởi chạy!!!")
 
 while True:
     # Đọc dòng từ serial
     signal = arduino.readline().decode('utf-8').strip()
 
-    if signal == "RUN_PYTHON":
-        print(signal)
+    if signal == "RUN_ADD":
+
+        # Đảm bảo thư mục lưu ảnh tồn tại
+        output_dir = 'E:/Py/pythonProject'
+
+        if not cap.isOpened():
+            print("Không thể mở camera")
+            exit()
+
+        # Chụp ảnh
+        ret, frame = cap.read()
+
+        if ret:
+            # Đặt tên file và lưu ảnh
+            image_path = os.path.join(output_dir, 'test.jpg')
+            cv2.imwrite(image_path, frame)
+            print(f"Đã lưu ảnh tại {image_path}")
+        else:
+            print("Không chụp được ảnh")
+
         # Load a pretrained YOLO model (recommended for training)
-        model = YOLO("E:/Py/pythonProject/runs/detect/train11/weights/best.pt")
+        model = YOLO("E:/Py/pythonProject/runs/detect/train19/weights/best.pt")
 
         # Train the model using the 'coco8.yaml' dataset for 3 epochs
         results = model("E:/Py/pythonProject/test.jpg")
@@ -111,6 +118,10 @@ while True:
             def convert_text(text):
                 # Thay thế các ký tự không phải chữ hoa hoặc số bằng khoảng trắng
                 filtered_text = ''.join([char if char.isalnum() else ' ' for char in text])
+
+                # Loại bỏ khoảng trắng thừa giữa các ký tự
+                filtered_text = filtered_text.replace(' ', '')
+
                 # Chuyển đổi các ký tự theo từ điển
                 return ''.join([conversion_dict.get(char, char) for char in filtered_text])
 
@@ -122,8 +133,53 @@ while True:
                 formatted_results.append(converted_text)
 
             # Ghép kết quả thành chuỗi theo định dạng mong muốn
-            output = ' '.join(formatted_results)
+            output = ' '.join(formatted_results) + " s"
             print(output)
+
+            # Gửi dữ liệu đến Arduino
+            data_to_send = output  # Chuỗi dữ liệu cần gửi, kết thúc bằng dấu xuống dòng
+            arduino.write(data_to_send.encode())
+
+            # Đọc phản hồi từ Arduino (nếu có)
+            response = arduino.readline().decode('utf-8').strip()
+            print(f"Arduino says: {response}")
+
+            check_license_plate = arduino.readline().decode('utf-8').strip()
+
+            # Kiểm tra điều kiện mở cửa
+            if check_license_plate == "REMOVE_CAR":
+                ID = arduino.readline().decode('utf-8').strip()
+                check_all = ID + " " + response
+
+                print("Xóa xe")
+                print(check_all)
+
+                if check_all in list_license_plate:
+                    list_license_plate.remove(check_all)
+                    print("Xóa thành công")
+
+                    # Gửi dữ liệu đến Arduino
+                    check_to_send = "ACCEPT s"  # Chuỗi dữ liệu cần gửi, kết thúc bằng dấu xuống dòng
+                    arduino.write(check_to_send.encode())
+                else:
+                    print("Biển số xe không khớp")
+
+                    # Gửi dữ liệu đến Arduino
+                    check_to_send = "DENIED s"  # Chuỗi dữ liệu cần gửi, kết thúc bằng dấu xuống dòng
+                    arduino.write(check_to_send.encode())
+
+            if check_license_plate == "ADD_CAR":
+                ID = arduino.readline().decode('utf-8').strip()
+                check_all = ID + " " + response
+
+                print("Thêm xe")
+                print(check_all)
+
+                if check_all in list_license_plate:
+                    print("Xe đã tồn tại")
+                else:
+                    list_license_plate.append(check_all)
+                    print("Thêm thành công")
 
 
         # Đọc hình ảnh chứa biển số xe
@@ -132,4 +188,3 @@ while True:
 
         # Phân đoạn và nhận diện văn bản
         segment_image(image)
-
