@@ -26,15 +26,19 @@ firebase = pyrebase.initialize_app(firebase_config)
 # Truy cập Realtime Database
 db = firebase.database()
 
+# Trạng thái button
+buttonState = ""
 
 # Hàm xử lý stream khi có thay đổi
 def stream_handler(message):
+    global buttonState
     print(f"Event: {message['event']}")  # Loại sự kiện (put, patch, delete)
     print(f"Path: {message['path']}")    # Đường dẫn đến dữ liệu thay đổi
     print(f"Data: {message['data']}")    # Giá trị thay đổi hoặc None nếu bị xóa
 
     # In ra giá trị mới nếu có sự thay đổi
     if message['data'] is not None:
+        buttonState = message['data']
         print(f"Giá trị mới tại {message['path']}: {message['data']}")
 
 def segment_image(image):
@@ -80,7 +84,7 @@ def segment_image(image):
     return output
 
 # Set up a pretrained YOLO model
-model = YOLO("runs/detect/train11/weights/best.pt")
+model = YOLO("runs/detect/train22/weights/best.pt")
 
 # Load and process an image
 results = model("test.jpg")
@@ -172,7 +176,7 @@ def take_photo_and_send(url):
 
 
 # Lắng nghe sự thay đổi tại nhánh `status/checking`
-my_stream = db.child("status/checking").stream(stream_handler)
+my_stream = db.child("status/door1/isOpen").stream(stream_handler)
 
 # Read the cropped license plate image
 image_path = "license_plate_cropped.jpg"
@@ -182,14 +186,14 @@ image = cv2.imread(image_path)
 segment_image(image)
 
 # URL của API
-url = "https://4127-42-114-34-206.ngrok-free.app/vehicle/handle"  # Thay đổi thành URL thực tế của bạn
+url = "http://127.0.0.1:5000/vehicle/handle"  # Thay đổi thành URL thực tế của bạn
 
 # Đường dẫn file cần upload
 file_path = "./test.jpg"  # Thay đổi thành đường dẫn file thực tế
 
 # Nội dung message
-license_plate = "52 P2 92 121"
-status = "exit"
+license_plate = "52 P2 86 151"
+status = "enter"
 
 # Mở file và gửi request
 with open(file_path, "rb") as file:
@@ -208,4 +212,3 @@ with open(file_path, "rb") as file:
             print("Upload thất bại:", response.json())
     except Exception as e:
         print("Lỗi khi gọi API:", str(e))
-
