@@ -121,7 +121,7 @@ def scan_image(crop):
         im_array = r.plot()
         im = Image.fromarray(im_array[..., ::-1])
 
-        im.show()
+        # im.show()
 
         im.save("kq.jpg")
 
@@ -218,7 +218,7 @@ def segment_image(image):
                     matching_entry = entry
                     image = Image.open(f"license/{matching_entry}.jpg")
                     sendData("kq.jpg", response, ID, "conflict")
-                    image.show()
+                    # image.show()
                     break
             arduino.write("DENIED s".encode())
 
@@ -271,7 +271,7 @@ my_stream_door1 = db.child("status/door1/isOpen").stream(stream_handler_door1)
 my_stream_door2 = db.child("status/door2/isOpen").stream(stream_handler_door2)
 
 # URL của API
-url = "http://127.0.0.1:5000/vehicle/handle"  # Thay đổi thành URL thực tế của bạn
+url = "https://09b7-42-112-211-165.ngrok-free.app/vehicle/handle"  # Thay đổi thành URL thực tế của bạn
 
 def sendData(file_path, license_plate, rfid, status):
     # Mở file và gửi request
