@@ -30,8 +30,8 @@ Servo servo2;                                                           // Tạo
 LiquidCrystal lcd(LCD_RS, LCD_ENABLE, LCD_D4, LCD_D5, LCD_D6, LCD_D7);  // Tạo đối tượng cho màn hình LCD
 
 int buttonState = 0;
-int availableSlots = 5;  // Số lượng chỗ đỗ trống ban đầu
-String parkedRFIDs[5];   // Mảng để lưu trữ thông tin về các thẻ RFID đã đỗ
+int availableSlots = 100;  // Số lượng chỗ đỗ trống ban đầu
+String parkedRFIDs[100];   // Mảng để lưu trữ thông tin về các thẻ RFID đã đỗ
 
 // Thêm biến để theo dõi thời gian còi kêu
 
@@ -57,22 +57,33 @@ void setup() {
 
 
   lcd.begin(16, 2);  // Khởi tạo màn hình LCD 16x2
-  lcd.print("Smart Parking");
-  lcd.setCursor(0, 1);
-  lcd.print("Available: " + String(availableSlots));
+  // lcd.print("Smart Parking");
+  // lcd.setCursor(0, 1);
+  // lcd.print("Available: " + String(availableSlots));
 }
 
 void loop() {
+
+  static int prevButtonState = digitalRead(BUTTON);
 
   buttonState = digitalRead(BUTTON);
   int sensorOut = digitalRead(SENSOR_OUT);
   int sensorIn = digitalRead(SENSOR_IN);
 
-  if (buttonState == 1) {
+  Serial.println("RUN");
+
+  String checking = "";
+
+  while (checking == "") {
+    // Hiển thị dữ liệu nhận được lên Serial Monitor
+    checking = Serial.readStringUntil('p');
+  }
+
+  if (checking == "false ") {
     buzzBuzzer(100);
   }
 
-  while (buttonState == 1) {
+  while (checking == "false ") {
 
     lcd.clear();
     lcd.print("CheckOutManually");
@@ -80,6 +91,7 @@ void loop() {
     lcd.print("Available: " + String(availableSlots));
 
     if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
+      checking = "";
       String rfid = getRFID();  // Đọc mã RFID từ thẻ
 
       if (rfid != "") {
@@ -121,7 +133,7 @@ void loop() {
 
             delay(1000);
             lcd.clear();
-            lcd.print("Check out manually");
+            lcd.print("CheckOutManually");
             lcd.setCursor(0, 1);
             lcd.print("Available: " + String(availableSlots));
 
@@ -135,7 +147,7 @@ void loop() {
             buzzBuzzer(1000);
             delay(1000);
             lcd.clear();
-            lcd.print("Check out manually");
+            lcd.print("CheckOutManually");
             lcd.setCursor(0, 1);
             lcd.print("Available: " + String(++availableSlots));
 
@@ -176,7 +188,7 @@ void loop() {
             buzzBuzzer(500);
 
             lcd.clear();
-            lcd.print("Check out manually");
+            lcd.print("CheckOutManually");
             lcd.setCursor(0, 1);
             lcd.print("Available: " + String(availableSlots));
 
@@ -185,15 +197,39 @@ void loop() {
         }
       }
     }
+    String data = "";
+    data = Serial.readStringUntil('p');
+    if (data != "") {
+      if (data == "true ") {
+        checking = "";
+        Serial.println("LOOP");
+      } else if (data == "false ") {
+        checking = "";
+        Serial.println("LOOP");
+      } else if (data == "door1_True ") {
+        servo.write(0);
+      } else if (data == "door2_True ") {
+        servo2.write(0);
+      } else if (data == "door1_False ") {
+        servo.write(90);
+      } else if (data == "door2_False ") {
+        servo2.write(90);
+      }
+    }
     buttonState = digitalRead(BUTTON);
+    if (buttonState != prevButtonState) {
+      checking = "";
+      prevButtonState = buttonState;
+      Serial.println("CHANGE");
+    }
   }
   servo2.write(90);
 
-  if (buttonState == 0) {
+  if (checking == "true ") {
     buzzBuzzer(100);
   }
 
-  while (buttonState == 0) {
+  while (checking == "true ") {
 
     lcd.clear();
     lcd.print("Smart Parking");
@@ -202,6 +238,7 @@ void loop() {
 
     // Kiểm tra nếu có thẻ RFID mới được đưa vào
     if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
+      checking = "";
       String rfid = getRFID();  // Đọc mã RFID từ thẻ
 
       if (rfid != "") {
@@ -209,7 +246,7 @@ void loop() {
         lcd.clear();
         lcd.print("RFID: " + rfid);
 
-        Serial.println("RUN_ADD");
+        Serial.println("RUN_CHECK");
 
         bool isParkedCar = false;
         for (int i = 0; i < 3; i++) {
@@ -375,7 +412,8 @@ void loop() {
           buzzBuzzer(1000);
           delay(1000);
           lcd.clear();
-          lcd.print("Available: " + String(--availableSlots));
+          lcd.print("Available: " + String(availableSlots));
+          availableSlots--;
 
           sensorIn = digitalRead(SENSOR_IN);
           while (sensorIn == 1) {
@@ -438,7 +476,31 @@ void loop() {
       }
     }
     mfrc522.PICC_HaltA();  // Dừng truyền thẻ RFID
+    String data = "";
+    data = Serial.readStringUntil('p');
+    if (data != "") {
+      if (data == "true ") {
+        checking = "";
+        Serial.println("LOOP");
+      } else if (data == "false ") {
+        checking = "";
+        Serial.println("LOOP");
+      } else if (data == "door1_True ") {
+        servo.write(0);
+      } else if (data == "door2_True ") {
+        servo2.write(0);
+      } else if (data == "door1_False ") {
+        servo.write(90);
+      } else if (data == "door2_False ") {
+        servo2.write(90);
+      }
+    }
     buttonState = digitalRead(BUTTON);
+    if (buttonState != prevButtonState) {
+      checking = "";
+      prevButtonState = buttonState;
+      Serial.println("CHANGE");
+    }
   }
 }
 
