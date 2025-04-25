@@ -39,12 +39,13 @@ list_license_plate = []
 list_license = []
 
 # Mở Webcam
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 
 # Trạng thái
 checking = ""
 isOpenDoor1 = false
 isOpenDoor2 = false
+
 
 # Hàm xử lý stream khi có thay đổi
 def stream_handler_checking(message):
@@ -56,8 +57,9 @@ def stream_handler_checking(message):
     # In ra giá trị mới nếu có sự thay đổi
     if message['data'] is not None:
         checking = message['data']
-        arduino.write(f"{checking} p".encode())
+        arduino.write(f"{checking} \n".encode())
         print(f"Giá trị mới tại {message['path']}: {message['data']}")
+
 
 # Hàm xử lý stream khi có thay đổi
 def stream_handler_door1(message):
@@ -69,9 +71,10 @@ def stream_handler_door1(message):
     # In ra giá trị mới nếu có sự thay đổi
     if message['data'] is not None:
         isOpenDoor1 = message['data']
-        print(f"door1_{isOpenDoor1} p")
-        arduino.write(f"door1_{isOpenDoor1} p".encode())
+        print(f"door1_{isOpenDoor1} \n")
+        arduino.write(f"door1_{isOpenDoor1} \n".encode())
         print(f"Giá trị mới tại {message['path']}: {message['data']}")
+
 
 # Hàm xử lý stream khi có thay đổi
 def stream_handler_door2(message):
@@ -83,8 +86,8 @@ def stream_handler_door2(message):
     # In ra giá trị mới nếu có sự thay đổi
     if message['data'] is not None:
         isOpenDoor2 = message['data']
-        print(f"door2_{isOpenDoor2} p")
-        arduino.write(f"door2_{isOpenDoor2} p".encode())
+        print(f"door2_{isOpenDoor2} \n")
+        arduino.write(f"door2_{isOpenDoor2} \n".encode())
         print(f"Giá trị mới tại {message['path']}: {message['data']}")
 
 
@@ -172,12 +175,12 @@ def segment_image(image):
     for result in results:
         text = result[1]
         converted_text = convert_text(text)
-        formatted_results.append(converted_text)
+        formatted_results.append(converted_text.upper())
 
-    output = ' '.join(formatted_results) + " s"
+    output = ' '.join(formatted_results) + " \n"
 
-    if output in ["  s", " s"]:
-        stop_signal = "RETURN s"
+    if output in ["  \n", " \n"]:
+        stop_signal = "RETURN \n"
         arduino.write(stop_signal.encode())
         print("Nhận diện lỗi!!!")
         return
@@ -207,7 +210,7 @@ def segment_image(image):
             list_license.remove(response)
             os.remove(f"license/{check_all}.jpg")
             print("Xóa thành công")
-            arduino.write("ACCEPT s".encode())
+            arduino.write("ACCEPT \n".encode())
 
         else:
             print("Biển số xe không khớp")
@@ -220,7 +223,7 @@ def segment_image(image):
                     sendData("kq.jpg", response, ID, "conflict")
                     # image.show()
                     break
-            arduino.write("DENIED s".encode())
+            arduino.write("DENIED \n".encode())
 
     if check_license_plate == "ADD_CAR":
         ID = arduino.readline().decode('utf-8').strip()
@@ -232,10 +235,10 @@ def segment_image(image):
         if response in list_license:
             if check_all in list_license_plate:
                 print("Xe đã tồn tại")
-                arduino.write("UNAVAILABLE s".encode())
+                arduino.write("UNAVAILABLE \n".encode())
             else:
                 print("Biển số này đã được đăng ký RFID")
-                arduino.write("UNAVAILABLE s".encode())
+                arduino.write("UNAVAILABLE \n".encode())
         else:
             list_license.append(response)
             list_license_plate.append(check_all)
@@ -244,8 +247,7 @@ def segment_image(image):
             cv2.imwrite(file_path, check_all_image)
             sendData(f"license/{check_all}.jpg", response, ID, "enter")
             print("Thêm thành công")
-            arduino.write("AVAILABLE s".encode())
-
+            arduino.write("AVAILABLE \n".encode())
 
 # =======================================================================================================================
 
@@ -270,15 +272,19 @@ my_stream_door1 = db.child("status/door1/isOpen").stream(stream_handler_door1)
 # Lắng nghe sự thay đổi tại nhánh `status/checking`
 my_stream_door2 = db.child("status/door2/isOpen").stream(stream_handler_door2)
 
-# URL của API
-url = "https://09b7-42-112-211-165.ngrok-free.app/vehicle/handle"  # Thay đổi thành URL thực tế của bạn
+# URL của API (/vehile/handle)
+url = "https://jay-humorous-koi.ngrok-free.app/vehicle/handle"  # Thay đổi thành URL thực tế của bạn
 
 def sendData(file_path, license_plate, rfid, status):
     # Mở file và gửi request
     with open(file_path, "rb") as file:
         # Tạo payload với file và messages
-        files = {"image": file}
-        data = {"licensePlate": license_plate, "rfid": rfid, "status": status}
+        files = {"image": (file_path, file, "image/jpeg")}
+        data = {
+            "licensePlate": license_plate,
+            "rfid": rfid,
+            "status": status
+        }
 
         try:
             # Gửi request POST
@@ -288,26 +294,32 @@ def sendData(file_path, license_plate, rfid, status):
             if response.status_code == 200:
                 print("Upload thành công:", response.json())
             else:
-                print("Upload thất bại:", response.json())
+                print("Upload thất bại:", response.status_code, response.text)
         except Exception as e:
             print("Lỗi khi gọi API:", str(e))
 
+
+# Vòng lặp chính
 while True:
 
     begin = arduino.readline().decode('utf-8').strip()
     if begin == "RUN":
+        #===============================================================================================================
         while (checking == ""):
-            if (checking != ""):
-                print(checking)
+            print("Wait checking!!! \n")
 
         print(checking)
-        arduino.write(f"{checking} p".encode())
+
+        # Gửi trạng thái
+        arduino.write(f"{checking} \n".encode())
 
         signal = ""
         while signal == "":
             signal = arduino.readline().decode('utf-8').strip()
+
         print(signal)
 
+        # Chuyển trạng thái
         if signal == "CHANGE":
             if (checking == "true"):
                 checking = "false"
@@ -316,10 +328,11 @@ while True:
                 checking = "true"
                 db.child("status/checking").set(checking)
 
-
+        # Bỏ qua vòng lặp
         if signal == "LOOP":
             print("")
 
+        # Bắt đầu vòng while check biển số xe
         if signal == "RUN_CHECK":
             print(signal)
             output_dir = '.'
@@ -344,7 +357,7 @@ while True:
             elif check_signal == "REMOVE_CAR":
                 scan_image("right")
             else:
-                arduino.write("RETURN s".encode())
+                arduino.write("RETURN \n".encode())
 
             image_path = "license_plate_cropped.jpg"
             if os.path.exists(image_path):
@@ -355,11 +368,14 @@ while True:
                 os.remove("test.jpg")
             else:
                 print("Không nhận diện được biển số xe nào trong khung hình.")
-                os.remove("kq.jpg")
-                os.remove("test.jpg")
-                arduino.write("RETURN s".encode())
+                try:
+                    os.remove("kq.jpg")
+                    os.remove("test.jpg")
+                    arduino.write("RETURN \n".encode())
+                except:
+                    print("Hết chỗ để xe.")
 
-
+        # Chỉ xoá xe mà không check biển số
         if signal == "RUN_SKIP":
             print(signal)
             RFID = arduino.readline().decode('utf-8').strip()
@@ -378,6 +394,8 @@ while True:
                             list_license.remove(check_all)
 
             if not list_check:
-                arduino.write("DENIED s".encode())
+                arduino.write("DENIED \n".encode())
             else:
-                arduino.write("ACCEPT s".encode())
+                arduino.write("ACCEPT \n".encode())
+    else:
+        print(begin)
